@@ -1,0 +1,357 @@
+openapi: 3.0.3
+info:
+  title: Asset Service
+  version: 2.1.020
+  contact:
+    name: Synack Engineering
+    email: support@synack.com
+servers:
+  - url: https://platform.synack.com/api/asset
+paths:
+  /v2/assets:
+    get:
+      operationId: getAssets
+      description: >
+        Retrieve the list of assets for one or more organizations, considering
+        filtering and pagination query parameters. When an organization-level
+        OAuth2 scope is provided, the results will be restricted to those
+        organizations the user is authorized for. Similarly, if a listing-
+        level OAuth2 scope is provided, the results will be restricted to those
+        listings the user is authorized for.
+
+        Additional query parameters generally restrict the resulting set of
+        assets according to AND semantics.
+
+        Use of organizationUid and listingUid query parameters will further
+        restrict the results.
+
+        If neither are specified, the returned assets are the set of assets
+        the user is allowed to access with organization OR listing specific
+        privileges.
+
+        If listing UIDs are supplied without organization UIDs, then only the
+        assets assigned to those listings (which the user is authorized for)
+        will be returned. Conversely, if organization UIDs are supplied without
+        listing UIDs, then only the assets owned by those organizations (which
+        the the user is authorized for) will be returned.
+
+        Should both organization UIDs and listing UIDs be supplied, then the set
+        of assets returned is restricted to assets assigned to any of the
+        supplied listings, AND owned by any of the supplied organizations,
+        further restricted to only those the user is authorized to access.
+
+        Researcher users are restricted to only viewing credentials of in scope
+        assets for listings to which they have been assigned.
+      parameters:
+        - in: query
+          name: organizationUid[]
+          explode: true
+          schema:
+            type: array
+            items:
+              $ref: "#/components/schemas/OrganizationUID"
+          required: false
+          description: >
+            Unique identifier for an organization. If not supplied the request will
+            apply to all organizations the user is authorized to access.
+        - in: query
+          name: listingUid[]
+          explode: true
+          schema:
+            type: array
+            items:
+              $ref: "#/components/schemas/ListingUID"
+          required: false
+          description: >
+            Unique identifier for an listing. If not supplied the request will
+            apply to all listings the user is authorized to access.
+        - in: query
+          name: assetType[]
+          schema:
+            type: array
+            items:
+              $ref: "#/components/schemas/AssetType"
+          required: false
+          explode: true
+          description: >
+              Restrict the returned asset summaries to only assets of the specified type.
+              Accepted value: host, webapp, cloudaccount, mobileapp, network.
+        - in: query
+          name: hostType[]
+          schema:
+            type: array
+            items:
+              $ref: "#/components/schemas/HostType"
+          required: false
+          explode: true
+          description: >
+            Restrict the returned asset summaries to only the types of host assets requested when
+            assetType also includes host. Accepted value: ip, cidr, fqdn, as.
+        - in: query
+          name: search
+          schema:
+            type: string
+          required: false
+          description: >
+            Optional query parameter for a search string that will be used
+            to match within the label or location properties of assets. If
+            this query parameter is provided, any location query parameter
+            will be ignored.
+        - in: query
+          name: active
+          schema:
+            type: boolean
+          required: false
+          description: >
+            Optional parameter that determines whether the response includes
+            assets regardless of active state (the default, if this query
+            parameter is not provided); active assets only if true; or inactive
+            assets only if false.
+        - in: query
+          name: inProduction
+          schema:
+            type: boolean
+          required: false
+          description: >
+            Optional query parameter that determines whether production or
+            non-production assets will be included in the response.
+        - in: query
+          name: scope[]
+          schema:
+            type: array
+            items:
+              $ref: "#/components/schemas/Scope"
+          required: false
+          explode: true
+          description: >
+              Restrict the returned assets to only assets associated to listings by the specified scopes.
+              Accepted value: in, out, discovered, blocked.
+        - in: query
+          name: location
+          schema:
+            type: string
+          required: false
+          description: >
+            Prefix search of the derived location property.
+        - in: query
+          name: perPage
+          schema:
+            type: integer
+            format: int32
+            minimum: 1
+            maximum: 5000
+          required: false
+          description: >
+            Requested page size for pagination. A server-selected default of 100 will
+            be used when no perPage is requested via query parameter.
+        - in: query
+          name: page
+          schema:
+            type: integer
+            format: int32
+            minimum: 1
+          required: false
+          description: >
+            Page to retrieve in paginated response. A server-selected default of 1 will
+            be used when no page is requested via query parameter.
+        - in: query
+          name: sort
+          schema:
+            type: string
+            enum:
+              - location
+              - label
+              - createdAt
+              - updatedAt
+              - lastReachableAt
+              - lastScan
+          description: Optional property to sort results by.
+          required: false
+        - in: query
+          name: sortDir
+          schema:
+            type: string
+            enum:
+              - asc
+              - desc
+            default: asc
+          required: false
+          description: Direction of sort-order for items in the response.
+        - in: query
+          name: origin
+          schema:
+            type: string
+            enum:
+              - provided
+              - discovered
+          description: Optional property to filter results by human created or system discovered assets.
+          required: false
+      responses:
+        "200":
+          $ref: "#/components/responses/PaginatedArrayOfAssets"
+        "400":
+          $ref: "#/components/responses/400BadRequest"
+        "401":
+          $ref: "#/components/responses/401Unauthorized"
+        "403":
+          $ref: "#/components/responses/403Forbidden"
+        "500":
+          $ref: "#/components/responses/500InternalServerError"
+        "503":
+          $ref: "#/components/responses/503ServiceUnavailable"
+components:
+  schemas:
+    OrganizationUID:
+      type: string
+      pattern: "^[-_0-9a-z]{1,50}"
+      description: Unique identifier for an organization.
+    ListingUID:
+      type: string
+      pattern: "^[-_0-9a-z]{1,50}"
+      description: Unique identifier for an listing.
+      readOnly: true
+    AssetType:
+      type: string
+      enum:
+        - cloudaccount
+        - host
+        - network
+        - mobileapp
+        - webapp
+    HostType:
+      type: string
+      enum:
+        - ip
+        - cidr
+        - fqdn
+        - as
+    Scope:
+      description: >
+        Set to _in_-scope means automated and manual testing _should_ occur;
+        _out_-of-scope means automated and manual testing _must not_ occur;
+        _discovered_ means observed through automated discovery and may be
+        automatically removed if not observed again during subsequent discovery
+        activities. SRT should default to _in_-scope and _discovered_ scopes
+      type: string
+      enum:
+        - in
+        - out
+        - discovered
+        - blocked
+    ProblemDetails:
+      type: object
+      description: "See [RFC 7807: Problem Details for HTTP APIs](https://tools.ietf.org/html/rfc7807)"
+      properties:
+        type:
+          type: string
+          readOnly: true
+        title:
+          type: string
+          readOnly: true
+        status:
+          type: integer
+          format: int32
+          minimum: 100
+          maximum: 511
+          description: HTTP Status code.
+          readOnly: true
+        detail:
+          type: string
+          description: Message detailing the problem.
+          readOnly: true
+        instance:
+          type: string
+          description: generated problem instance number to correlate with logs
+          readOnly: true
+        maxBatchSize:
+          type: integer
+          description: Maximum processable batch size.
+          readOnly: true
+        batchSize:
+          type: integer
+          description: Batch size sent when batch is too large.
+          readOnly: true
+    SingleAsset:
+      description: >
+        JSON response and can be one of the following types:
+        CloudAccountAsset, HostAsset, MobileApplicationAsset, NetworkAsset, WebApplicationAsset.
+      discriminator:
+        propertyName: assetType
+        mapping:
+          cloudaccount: "#/components/schemas/CloudAccountAsset"
+          host: "#/components/schemas/HostAsset"
+          mobileapp: "#/components/schemas/MobileApplicationAsset"
+          network: "#/components/schemas/NetworkAsset"
+          webapp: "#/components/schemas/WebApplicationAsset"
+    ArrayOfAssets:
+      type: array
+      items:
+        $ref: "#/components/schemas/SingleAsset"
+
+  headers:
+    PaginationLimit:
+      description: Maximum number of items returned in a paginated response.
+      schema:
+        type: integer
+        format: int32
+        minimum: 1
+    PaginationCurrentPage:
+      description: Current page in a paginated response.
+      schema:
+        type: integer
+        format: int32
+        minimum: 1
+    PaginationTotalPages:
+      description: Total number of pages in a paginated response.
+      schema:
+        type: integer
+        format: int32
+        minimum: 1
+    PaginationTotalCount:
+      description: Total number of items in all pages of a paginated response.
+      schema:
+        format: int32
+        minimum: 1
+    Link:
+      description: Standard link header.
+      schema:
+        type: string
+
+  responses:
+    PaginatedArrayOfAssets:
+      description: Paginated assets.
+      headers:
+        "Pagination-Limit":
+          $ref: "#/components/headers/PaginationLimit"
+        "Pagination-Current-Page":
+          $ref: "#/components/headers/PaginationCurrentPage"
+        "Pagination-Total-Pages":
+          $ref: "#/components/headers/PaginationTotalPages"
+        "Pagination-Total-Count":
+          $ref: "#/components/headers/PaginationTotalCount"
+        "Link":
+          $ref: "#/components/headers/Link"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ArrayOfAssets"
+    400BadRequest:
+      description: Bad Request
+    401Unauthorized:
+      description: Unauthorized.
+    403Forbidden:
+      description: Forbidden
+    404NotFound:
+      description: Not found.
+    500InternalServerError:
+      description: Internal Server Error.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/ProblemDetails"
+    503ServiceUnavailable:
+      description: Service Unavailable.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/ProblemDetails"
