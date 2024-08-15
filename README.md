@@ -1,5 +1,4 @@
-# api-assets
-API for Asset Service
+# API for Asset Service
 
 Assets may be retrieved using a combination of query parameters. This endpoint returns asset-type neutral summary information and supports pagination by default.
 
